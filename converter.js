@@ -381,7 +381,9 @@ const XERO_META_KEY = 'xeroItemsMeta'; // { filename, uploadedAt }
 
 // ── UI Logic ──
 const posFileInput = document.getElementById('pos-file');
+const posDrop = document.getElementById('pos-drop');
 const xeroFileInput = document.getElementById('xero-file');
+const xeroDrop = document.getElementById('xero-drop');
 const xeroUploadArea = document.getElementById('xero-upload-area');
 const xeroSavedBadge = document.getElementById('xero-saved');
 const xeroFilenameEl = document.getElementById('xero-filename');
@@ -396,6 +398,7 @@ const previewDiv = document.getElementById('preview');
 const downloadBtn = document.getElementById('download-btn');
 
 let csvResult = '';
+let posFile = null; // track file from drag-and-drop or input
 
 function getXeroMeta() {
   try {
@@ -408,7 +411,6 @@ function getXeroMeta() {
 function hasXeroData() {
   const data = localStorage.getItem(XERO_STORAGE_KEY);
   const meta = getXeroMeta();
-  // Clean up stale data: if we have CSV but no meta (or vice versa), remove both
   if ((data && !meta) || (!data && meta)) {
     localStorage.removeItem(XERO_STORAGE_KEY);
     localStorage.removeItem(XERO_META_KEY);
@@ -419,8 +421,8 @@ function hasXeroData() {
 
 function formatUploadDate(isoStr) {
   const d = new Date(isoStr);
-  return d.toLocaleDateString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
+  return d.toLocaleDateString('zh-CN', {
+    year: 'numeric', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
@@ -428,13 +430,11 @@ function formatUploadDate(isoStr) {
 function updateXeroUI() {
   const meta = getXeroMeta();
   if (hasXeroData() && meta) {
-    // Has saved data — hide file input, show saved info
     xeroUploadArea.classList.add('hidden');
     xeroSavedBadge.classList.remove('hidden');
     xeroFilenameEl.textContent = meta.filename;
-    xeroDateEl.textContent = 'Uploaded: ' + formatUploadDate(meta.uploadedAt);
+    xeroDateEl.textContent = '上传时间: ' + formatUploadDate(meta.uploadedAt);
   } else {
-    // No saved data — show file input, hide saved badge
     xeroUploadArea.classList.remove('hidden');
     xeroSavedBadge.classList.add('hidden');
   }
@@ -450,12 +450,15 @@ function saveXeroData(text, filename) {
 }
 
 function checkReady() {
-  const hasPOS = posFileInput.files.length > 0;
+  const hasPOS = posFile || posFileInput.files.length > 0;
   const hasXero = xeroFileInput.files.length > 0 || hasXeroData();
   convertBtn.disabled = !(hasPOS && hasXero);
 }
 
-posFileInput.addEventListener('change', checkReady);
+posFileInput.addEventListener('change', () => {
+  posFile = posFileInput.files[0] || null;
+  checkReady();
+});
 xeroFileInput.addEventListener('change', checkReady);
 
 clearXeroBtn.addEventListener('click', () => {
@@ -474,8 +477,41 @@ function readFile(file) {
   });
 }
 
+// ── Drag and drop ──
+function setupDropZone(dropEl, fileInput, onDrop) {
+  dropEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropEl.classList.add('drag-over');
+  });
+  dropEl.addEventListener('dragleave', () => {
+    dropEl.classList.remove('drag-over');
+  });
+  dropEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropEl.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) {
+      onDrop(file);
+    }
+  });
+}
+
+setupDropZone(posDrop, posFileInput, (file) => {
+  posFile = file;
+  // Show filename in the hint area
+  posDrop.querySelector('.drop-hint').textContent = '已选择: ' + file.name;
+  checkReady();
+});
+
+setupDropZone(xeroDrop, xeroFileInput, (file) => {
+  // Read and save immediately
+  readFile(file).then((text) => {
+    saveXeroData(text, file.name);
+    updateXeroUI();
+  });
+});
+
 async function getXeroText() {
-  // If user uploaded a new file, use it and save to localStorage
   if (xeroFileInput.files.length > 0) {
     const file = xeroFileInput.files[0];
     const text = await readFile(file);
@@ -483,48 +519,50 @@ async function getXeroText() {
     updateXeroUI();
     return text;
   }
-  // Otherwise use saved data
   return localStorage.getItem(XERO_STORAGE_KEY);
 }
 
 convertBtn.addEventListener('click', async () => {
   convertBtn.disabled = true;
-  convertBtn.textContent = 'Converting...';
+  convertBtn.textContent = '转换中...';
 
   try {
-    const posText = await readFile(posFileInput.files[0]);
+    const file = posFile || posFileInput.files[0];
+    if (!file) throw new Error('请上传 POS 订单 CSV 文件');
+
+    const posText = await readFile(file);
     const xeroText = await getXeroText();
 
     if (!xeroText) {
-      throw new Error('No Xero Items data. Please upload the Xero Items CSV.');
+      throw new Error('没有 Xero 商品数据，请先上传 Xero 商品 CSV 文件。');
     }
 
     const result = convert(posText, xeroText);
 
     // Summary
     summaryDiv.innerHTML = `
-      <strong>Conversion complete</strong><br>
-      POS orders parsed: ${result.totalOrders}<br>
-      Invoices generated: ${result.totalInvoices}<br>
-      Total line items: ${result.invoiceRows.length}
+      <strong>转换完成</strong><br>
+      POS 订单数: ${result.totalOrders}<br>
+      生成发票数: ${result.totalInvoices}<br>
+      总行项目数: ${result.invoiceRows.length}
     `;
 
     // Warnings
     const allWarnings = [];
 
     if (result.missingFieldItems.length > 0) {
-      allWarnings.push('<h3>Items with missing Xero fields (excluded from output)</h3><ul>');
+      allWarnings.push('<h3>以下商品缺少 Xero 字段（已排除）</h3><ul>');
       for (const item of result.missingFieldItems) {
-        allWarnings.push(`<li><strong>${item.posName}</strong> (${item.itemCode}): missing ${item.missing.join(', ')}</li>`);
+        allWarnings.push(`<li><strong>${item.posName}</strong> (${item.itemCode}): 缺少 ${item.missing.join(', ')}</li>`);
       }
       allWarnings.push('</ul>');
     }
 
     const qtyMismatches = result.invoiceQtyChecks.filter(c => c.unmatchedQty > 0);
     if (qtyMismatches.length > 0) {
-      allWarnings.push('<h3>Quantity discrepancies (some items unmatched)</h3><ul>');
+      allWarnings.push('<h3>数量差异（部分商品未匹配）</h3><ul>');
       for (const c of qtyMismatches) {
-        allWarnings.push(`<li>${c.invoiceNumber}: ${c.before} items in POS, ${c.after} matched (${c.unmatchedQty} unmatched)</li>`);
+        allWarnings.push(`<li>${c.invoiceNumber}: POS 共 ${c.before} 项, 已匹配 ${c.after} 项 (${c.unmatchedQty} 项未匹配)</li>`);
       }
       allWarnings.push('</ul>');
     }
@@ -537,9 +575,9 @@ convertBtn.addEventListener('click', async () => {
     }
 
     if (result.unmatchedProducts.size > 0) {
-      let html = '<h3>Unmatched products (not found in Xero Items)</h3><ul>';
+      let html = '<h3>未匹配商品（在 Xero 商品列表中未找到）</h3><ul>';
       for (const [name, qty] of result.unmatchedProducts) {
-        html += `<li><strong>${name}</strong> — total qty: ${qty}</li>`;
+        html += `<li><strong>${name}</strong> — 总数量: ${qty}</li>`;
       }
       html += '</ul>';
       unmatchedDiv.innerHTML = html;
@@ -549,13 +587,23 @@ convertBtn.addEventListener('click', async () => {
     }
 
     if (result.invoiceRows.length > 0) {
-      const previewCols = ['ContactName', 'InvoiceNumber', 'InvoiceDate', 'InventoryItemCode', 'Description', 'Quantity', 'UnitAmount', 'AccountCode', 'TaxType'];
+      const previewCols = [
+        { key: 'ContactName', label: '客户' },
+        { key: 'InvoiceNumber', label: '发票号' },
+        { key: 'InvoiceDate', label: '日期' },
+        { key: 'InventoryItemCode', label: '商品编码' },
+        { key: 'Description', label: '描述' },
+        { key: 'Quantity', label: '数量' },
+        { key: 'UnitAmount', label: '单价' },
+        { key: 'AccountCode', label: '科目' },
+        { key: 'TaxType', label: '税种' },
+      ];
       let html = '<table><thead><tr>';
-      for (const col of previewCols) html += `<th>${col}</th>`;
+      for (const col of previewCols) html += `<th>${col.label}</th>`;
       html += '</tr></thead><tbody>';
       for (const row of result.invoiceRows) {
         html += '<tr>';
-        for (const col of previewCols) html += `<td>${row[col]}</td>`;
+        for (const col of previewCols) html += `<td>${row[col.key]}</td>`;
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -567,12 +615,12 @@ convertBtn.addEventListener('click', async () => {
     outputDiv.classList.remove('hidden');
 
   } catch (err) {
-    summaryDiv.innerHTML = `<strong style="color:red">Error:</strong> ${err.message}`;
+    summaryDiv.innerHTML = `<strong style="color:red">错误:</strong> ${err.message}`;
     outputDiv.classList.remove('hidden');
   }
 
   convertBtn.disabled = false;
-  convertBtn.textContent = 'Convert';
+  convertBtn.textContent = '开始转换';
 });
 
 downloadBtn.addEventListener('click', () => {
@@ -590,5 +638,5 @@ downloadBtn.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// ── Init: check if Xero data already saved ──
+// ── Init ──
 updateXeroUI();

@@ -39,6 +39,18 @@ h1 {
   border: 2px dashed #d0d5dd;
   border-radius: 8px;
   padding: 20px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.drop-zone.drag-over {
+  border-color: #0078d4;
+  background: #e3f2fd;
+}
+
+.drop-hint {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-top: 6px;
 }
 
 .upload-box label {

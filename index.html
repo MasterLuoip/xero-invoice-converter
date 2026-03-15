@@ -1,46 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>POS → Xero Invoice Converter</title>
+  <title>POS → Xero 发票转换器</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1>POS → Xero Invoice Converter</h1>
-    <p class="subtitle">Upload your POS order CSV and Xero Items CSV to generate a Xero-compatible Sales Invoice import file.</p>
+    <h1>POS → Xero 发票转换器</h1>
+    <p class="subtitle">上传 POS 订单 CSV 和 Xero 商品 CSV，自动生成 Xero 可导入的销售发票文件。</p>
 
     <div class="upload-section">
-      <div class="upload-box">
-        <label for="pos-file">POS Order CSV</label>
+      <div class="upload-box drop-zone" id="pos-drop">
+        <label for="pos-file">POS 订单 CSV</label>
         <input type="file" id="pos-file" accept=".csv">
-        <p class="hint">The raw order export from your POS system</p>
+        <p class="hint">POS 系统导出的原始订单文件</p>
+        <p class="drop-hint">或将文件拖放到此处</p>
       </div>
-      <div class="upload-box" id="xero-box">
-        <label for="xero-file">Xero Items CSV</label>
+      <div class="upload-box drop-zone" id="xero-drop">
+        <label for="xero-file">Xero 商品 CSV</label>
         <div id="xero-upload-area">
           <input type="file" id="xero-file" accept=".csv">
-          <p class="hint">InventoryItems export from Xero (InventoryItems-xxxx.csv)</p>
+          <p class="hint">从 Xero 导出的商品清单 (InventoryItems-xxxx.csv)</p>
+          <p class="drop-hint">或将文件拖放到此处</p>
         </div>
         <div id="xero-saved" class="saved-badge hidden">
           <div class="saved-info">
             <span id="xero-filename"></span>
             <span id="xero-date" class="saved-date"></span>
           </div>
-          <button id="clear-xero" class="clear-btn" title="Remove saved data and re-upload">Re-upload</button>
+          <button id="clear-xero" class="clear-btn" title="清除已保存数据并重新上传">重新上传</button>
         </div>
       </div>
     </div>
 
-    <button id="convert-btn" disabled>Convert</button>
+    <button id="convert-btn" disabled>开始转换</button>
 
     <div id="output" class="output hidden">
       <div id="summary" class="summary"></div>
       <div id="warnings" class="warnings hidden"></div>
       <div id="unmatched" class="unmatched hidden"></div>
       <div id="preview" class="preview"></div>
-      <button id="download-btn" class="download-btn hidden">Download Xero Invoice CSV</button>
+      <button id="download-btn" class="download-btn hidden">下载 Xero 发票 CSV</button>
     </div>
   </div>
 
