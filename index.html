@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS → Xero Invoice Converter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>POS → Xero Invoice Converter</h1>
+    <p class="subtitle">Upload your POS order CSV and Xero Items CSV to generate a Xero-compatible Sales Invoice import file.</p>
+
+    <div class="upload-section">
+      <div class="upload-box">
+        <label for="pos-file">POS Order CSV</label>
+        <input type="file" id="pos-file" accept=".csv">
+        <p class="hint">The raw order export from your POS system</p>
+      </div>
+      <div class="upload-box" id="xero-box">
+        <label for="xero-file">Xero Items CSV</label>
+        <div id="xero-upload-area">
+          <input type="file" id="xero-file" accept=".csv">
+          <p class="hint">InventoryItems export from Xero (InventoryItems-xxxx.csv)</p>
+        </div>
+        <div id="xero-saved" class="saved-badge hidden">
+          <div class="saved-info">
+            <span id="xero-filename"></span>
+            <span id="xero-date" class="saved-date"></span>
+          </div>
+          <button id="clear-xero" class="clear-btn" title="Remove saved data and re-upload">Re-upload</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="convert-btn" disabled>Convert</button>
+
+    <div id="output" class="output hidden">
+      <div id="summary" class="summary"></div>
+      <div id="warnings" class="warnings hidden"></div>
+      <div id="unmatched" class="unmatched hidden"></div>
+      <div id="preview" class="preview"></div>
+      <button id="download-btn" class="download-btn hidden">Download Xero Invoice CSV</button>
+    </div>
+  </div>
+
+  <script src="converter.js"></script>
+</body>
+</html>
