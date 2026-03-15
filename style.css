@@ -53,6 +53,25 @@ h1 {
   margin-top: 6px;
 }
 
+.file-selected {
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: #e8f5e9;
+  border: 2px solid #4caf50;
+  border-radius: 6px;
+  color: #2e7d32;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.file-selected-name {
+  font-weight: 700;
+  word-break: break-all;
+}
+
 .upload-box label {
   display: block;
   font-weight: 600;

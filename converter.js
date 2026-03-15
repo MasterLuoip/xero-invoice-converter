@@ -457,6 +457,7 @@ function checkReady() {
 
 posFileInput.addEventListener('change', () => {
   posFile = posFileInput.files[0] || null;
+  if (posFile) showFileSelected(posDrop, posFile.name);
   checkReady();
 });
 xeroFileInput.addEventListener('change', checkReady);
@@ -478,16 +479,42 @@ function readFile(file) {
 }
 
 // ── Drag and drop ──
+// Use window (not document) to reliably prevent browser file open/download.
+// Safari requires dragenter + dragover both cancelled, plus dropEffect = 'copy'.
+window.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+window.addEventListener('dragenter', (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+window.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+
 function setupDropZone(dropEl, fileInput, onDrop) {
+  let dragCounter = 0;
+
+  dropEl.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter++;
+    dropEl.classList.add('drag-over');
+  }, false);
+
   dropEl.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dropEl.classList.add('drag-over');
-  });
-  dropEl.addEventListener('dragleave', () => {
-    dropEl.classList.remove('drag-over');
-  });
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, false);
+
+  dropEl.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dropEl.classList.remove('drag-over');
+    }
+  }, false);
+
   dropEl.addEventListener('drop', (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragCounter = 0;
     dropEl.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
     if (file && file.name.endsWith('.csv')) {
@@ -496,10 +523,41 @@ function setupDropZone(dropEl, fileInput, onDrop) {
   });
 }
 
+function showFileSelected(dropEl, filename) {
+  // Remove existing badge if any
+  const existing = dropEl.querySelector('.file-selected');
+  if (existing) existing.remove();
+  // Hide everything else in the box (input, hints)
+  Array.from(dropEl.children).forEach((child) => {
+    if (child.tagName === 'LABEL') return; // keep the label
+    child.style.display = 'none';
+  });
+  // Add prominent green badge
+  const badge = document.createElement('div');
+  badge.className = 'file-selected';
+  badge.innerHTML = '<span class="file-selected-name">' + filename + '</span>';
+  const reselect = document.createElement('button');
+  reselect.className = 'clear-btn';
+  reselect.textContent = '重新选择';
+  reselect.addEventListener('click', (e) => {
+    e.stopPropagation();
+    badge.remove();
+    // Show everything again
+    Array.from(dropEl.children).forEach((child) => {
+      if (child.tagName === 'LABEL') return;
+      child.style.display = '';
+    });
+    posFile = null;
+    posFileInput.value = '';
+    checkReady();
+  });
+  badge.appendChild(reselect);
+  dropEl.appendChild(badge);
+}
+
 setupDropZone(posDrop, posFileInput, (file) => {
   posFile = file;
-  // Show filename in the hint area
-  posDrop.querySelector('.drop-hint').textContent = '已选择: ' + file.name;
+  showFileSelected(posDrop, file.name);
   checkReady();
 });
 
